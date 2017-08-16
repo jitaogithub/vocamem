@@ -1,1 +1,2 @@
-# vocamem
+# Vocamem
+A boon for vocabulary memorizing
