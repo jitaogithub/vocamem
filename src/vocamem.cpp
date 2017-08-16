@@ -2,83 +2,119 @@
 #include <fstream>
 #include <string>
 #include <map>
-#include <utility>
+#include <tuple>
 #include <cstdlib>
+#include <vector>
+#include <algorithm>
 
 using namespace std;
 
-void updateFile(const map<string, pair<string, int> >& list, string filename) {
+void readDirectory(map<string, string>& dict, const string& filename) {
+    ifstream fin;
+    fin.open(filename);
+    string word, translation;
+    while (fin >> word) {
+        fin >> translation;
+        dict[word] = translation;    
+    }
+}
+
+void readTask(const map<string, string>& dict, vector<pair<string, int> >& task) {
+    for (auto iter = dict.begin(); iter != dict.end(); iter++)
+        task.push_back(pair<string, int>(iter->first, 3));
+}
+
+void readTask(vector<pair<string, int> >& task, const string& filename) {
+    ifstream fin;
+    fin.open(filename);
+    string word;
+    int status;
+    while (fin >> word) {
+        fin >> status;
+        if (status <= 0)
+            continue;
+        else if (status > 3)
+            status = 3;
+        task.push_back(pair<string, int>(word, status));
+    }
+
+}
+
+void updateFile(const map<string, string>& dict, const vector<pair<string, int> >& task, const string& filename) {
     ofstream fout;
     fout.open(filename);
-    for (auto iter = list.begin(); iter != list.end(); iter++) {
-        if (!iter->second.second)
+    if (!fout.is_open()) {        
+        cout << "Error" << endl;
+        exit(1);
+    }
+    for (auto iter = task.begin(); iter != task.end(); iter++) {
+        if (!iter->second)
             continue;
-        fout << iter->first << ' ' << iter->second.first << ' ' << iter->second.second << endl;
+        fout << iter->first << ' ' << iter->second << endl;
     }
 }
 
 int main() {
-    map<string, pair<string, int> > list;
-
+    map<string, string> dict;
+    vector<pair<string, int> > task;
+    
+    cout << "Dictionary: ";
+    string filename;
+    cin >> filename;
+    readDirectory(dict, filename);
+    
     cout << "Mode (new or existing): ";
     string mode;
     cin >> mode;
-    
-    cout << "File: ";
-    string filename;
-    cin >> filename;
-    ifstream fin;
-    fin.open(filename);
-    string word, translation;
-    if (mode != "new" && mode != "existing")
-        return 1;
-    else if (mode == "new")
-        while (fin >> word) {
-            fin >> translation;
-            list[word] = pair<string, int>(translation, 3);
-        }
-    else if (mode == "existing") {
-        int status;
-        while (fin >> word) {
-            fin >> translation >> status;
-            list[word] = pair<string, int>(translation, status);    
-        }
+    if (mode != "new" && mode != "existing") {
+        cout << "Error" << endl;
+        exit(1);
+    } else if (mode == "new")
+        readTask(dict, task); 
+    else {
+        cout << "Task file: ";
+        cin >> filename;
+        readTask(task, filename);
     }
-    updateFile(list, "temp");
-
+    
     cout << endl << "Let's begin. 1 for \"I know\", 2 for \"I don't know\", 9 for \"Too simple\", -1 for \"save and quit\"." << endl << endl;
-    while (!list.empty()) {
-        for (auto iter = list.begin(); iter != list.end(); iter++) {
-            if (!iter->second.second)
-                continue;
-
+    while (!task.empty()) {    
+        random_shuffle(task.begin(), task.end());
+        updateFile(dict, task, "temp");
+        for (auto iter = task.begin(); iter != task.end();) {
             cout << iter->first << ' ';
             int choice;
             cin >> choice;
-            cout << iter->second.first << endl << endl;
+            cout << dict[iter->first] << endl << endl;
             if (choice == -1) {
-                cout << "Save to: ";
+                cout << "Save as: ";
                 cin >> filename;
-                updateFile(list, filename);
-                cout << "File saved." << endl;
+                updateFile(dict, task, filename);
+                remove("temp");
+                cout << "Task saved." << endl;
                 system("pause>nul");
                 return 0;
             } else if (choice == 1) {
-                iter->second.second--;
+                iter->second--;
             } else if (choice == 2) {
-                if (iter->second.second < 3)
-                    iter->second.second++;
+                if (iter->second < 3)
+                    iter->second++;
                 else
-                    iter->second.second = 3;
+                    iter->second = 3;
             } else if (choice == 9) {
-                iter->second.second = 0;
+                iter->second = 0;
             } else {
-                iter--;
                 continue;
             }
-            updateFile(list, "temp");
+            if (iter->second > 0)
+                iter++;
+            else 
+                iter = task.erase(iter);
+            updateFile(dict, task, "temp");
         }
+
     }
+
     cout << "Task completed." << endl;
     system("pause>nul");
     remove("temp");
